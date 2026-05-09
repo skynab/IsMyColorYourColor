@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>is my color your color?</title>
+<style>
+  :root {
+    --fg: #111;
+    --bg: #fafafa;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    overflow: hidden;
+  }
+
+  /* Picker screen */
+  #picker {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow-y: auto;
+  }
+  #picker h1 {
+    font-size: clamp(22px, 3.4vw, 32px);
+    font-weight: 600;
+    margin: 0 0 6px;
+    text-align: center;
+  }
+  #picker p.sub {
+    font-size: 14px;
+    color: #666;
+    margin: 0 0 26px;
+    text-align: center;
+    max-width: 520px;
+  }
+  .pair-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    width: 100%;
+    max-width: 720px;
+  }
+  .pair-btn {
+    position: relative;
+    border: none;
+    border-radius: 14px;
+    padding: 0;
+    cursor: pointer;
+    overflow: hidden;
+    height: 84px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+    color: #fff;
+    font-family: inherit;
+  }
+  .pair-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(0,0,0,0.16); }
+  .pair-btn:active { transform: translateY(0); }
+  .pair-btn .label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  }
+  @media (max-width: 520px) {
+    .pair-grid { grid-template-columns: 1fr; }
+    .pair-btn { height: 70px; }
+  }
+
+  /* Test screen */
+  #app {
+    display: none;
+    height: 100vh;
+    width: 100vw;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: stretch;
+    transition: background-color 0.2s ease;
+  }
+  .top-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .title {
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    color: rgba(0,0,0,0.55);
+    pointer-events: auto;
+  }
+  .progress {
+    font-size: 13px;
+    color: rgba(0,0,0,0.55);
+    font-variant-numeric: tabular-nums;
+    pointer-events: auto;
+  }
+  .question {
+    margin-top: auto;
+    text-align: center;
+    font-size: clamp(22px, 4vw, 36px);
+    font-weight: 500;
+    color: rgba(0,0,0,0.7);
+    padding: 24px 16px 8px;
+    user-select: none;
+  }
+  .buttons {
+    display: flex;
+    gap: 16px;
+    padding: 18px 18px 32px;
+    justify-content: center;
+    margin-bottom: auto;
+  }
+  button.choice {
+    flex: 1;
+    max-width: 280px;
+    padding: 18px 24px;
+    font-size: 20px;
+    font-weight: 600;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    transition: transform 0.08s ease, box-shadow 0.2s ease;
+    letter-spacing: 0.5px;
+  }
+  button.choice:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+  button.choice:active { transform: translateY(1px); }
+
+  /* Results screen */
+  #results {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 20;
+    overflow-y: auto;
+    padding: 40px 20px 60px;
+  }
+  #results .inner {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  #results h1 {
+    font-size: clamp(24px, 4vw, 36px);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+  #results p {
+    font-size: 16px;
+    line-height: 1.55;
+    color: #333;
+    margin: 8px 0;
+  }
+  .boundary-display {
+    margin: 28px 0 16px;
+    padding: 24px;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 2px 18px rgba(0,0,0,0.06);
+  }
+  .gradient-bar {
+    position: relative;
+    height: 60px;
+    border-radius: 10px;
+    margin: 14px 0 32px;
+    overflow: visible;
+  }
+  .gradient-fill {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+  }
+  .marker {
+    position: absolute;
+    top: -8px;
+    bottom: -8px;
+    width: 4px;
+    background: #111;
+    border-radius: 2px;
+    transform: translateX(-2px);
+  }
+  .marker::after {
+    content: attr(data-label);
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    font-weight: 600;
+    color: #111;
+    white-space: nowrap;
+  }
+  .marker.you::after {
+    top: auto;
+    bottom: -22px;
+  }
+  .swatch-row {
+    display: flex;
+    gap: 12px;
+    margin: 18px 0;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .swatch {
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .swatch-label {
+    font-size: 13px;
+    color: #555;
+  }
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  .actions button {
+    padding: 12px 20px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    background: #fff;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    font-family: inherit;
+  }
+  .actions button.primary {
+    background: #111;
+    color: #fff;
+    border-color: #111;
+  }
+  .footer-note {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(0,0,0,0.4);
+    padding: 8px 0 14px;
+  }
+  .keys {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(0,0,0,0.5);
+    padding-bottom: 6px;
+  }
+  .exit-row {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0 10px;
+  }
+  button.exit-btn {
+    background: rgba(255,255,255,0.6);
+    border: 1px solid rgba(0,0,0,0.15);
+    color: rgba(0,0,0,0.7);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    backdrop-filter: blur(4px);
+    transition: background 0.15s ease, transform 0.08s ease;
+  }
+  button.exit-btn:hover { background: rgba(255,255,255,0.85); }
+  button.exit-btn:active { transform: translateY(1px); }
+  @media (max-width: 480px) {
+    button.choice { font-size: 17px; padding: 16px; }
+    .question { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Picker screen -->
+<div id="picker">
+  <h1>is my color your color?</h1>
+  <p class="sub">Pick a color comparison. You'll see colors that fade between the two and decide which side each one belongs to.</p>
+  <div class="pair-grid" id="pairGrid"><!-- buttons injected --></div>
+  <p class="footer-note" style="margin-top:24px;">a color-perception test &middot; inspired by ismy.blue</p>
+</div>
+
+<!-- Test screen -->
+<div id="app">
+  <div class="top-bar">
+    <div class="title" id="testTitle">is my color your color?</div>
+    <div class="progress" id="progress">1 / 12</div>
+  </div>
+
+  <div class="question" id="questionText">Is this color A or B?</div>
+
+  <div class="buttons">
+    <button class="choice" id="btnA">A</button>
+    <button class="choice" id="btnB">B</button>
+  </div>
+
+  <div class="keys" id="keysHint">tip: press ← for the left choice, → for the right</div>
+  <div class="exit-row">
+    <button class="exit-btn" id="exitTestBtn">end test &amp; pick another pair</button>
+  </div>
+  <div class="footer-note">a color-perception test &middot; inspired by ismy.blue</div>
+</div>
+
+<!-- Results screen -->
+<div id="results">
+  <div class="inner">
+    <h1 id="resultTitle">Your boundary</h1>
+    <p id="resultText"></p>
+
+    <div class="boundary-display">
+      <div style="display:flex; justify-content:space-between; font-weight:600; font-size:13px; color:#555;">
+        <span id="moreA">more A</span>
+        <span id="moreB">more B</span>
+      </div>
+      <div class="gradient-bar">
+        <div class="gradient-fill" id="gradientFill"></div>
+        <div class="marker you" id="markerYou" data-label="you"></div>
+      </div>
+
+      <div class="swatch-row">
+        <div>
+          <div class="swatch" id="boundarySwatch"></div>
+          <div class="swatch-label">your boundary color</div>
+        </div>
+        <div>
+          <div class="swatch" id="swatchA"></div>
+          <div class="swatch-label" id="swatchALabel">side A</div>
+        </div>
+        <div>
+          <div class="swatch" id="swatchB"></div>
+          <div class="swatch-label" id="swatchBLabel">side B</div>
+        </div>
+      </div>
+
+      <p id="interpretation" style="margin-top: 8px;"></p>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="restartBtn">take it again</button>
+      <button id="changePairBtn">try a different pair</button>
+      <button id="shareBtn">copy result</button>
+    </div>
+
+    <p class="footer-note" style="margin-top:30px;">
+      Note: results depend on your screen, lighting, and color calibration.
+    </p>
+  </div>
+</div>
+
+<script>
+(function () {
+  const TOTAL_QUESTIONS = 12;
+
+  // Each pair defines:
+  //   id          — internal key
+  //   labelA/B    — the two color names
+  //   hueA/B      — hue degrees for the pure-A and pure-B endpoints
+  //   litA/B      — lightness for each endpoint (some hues need different
+  //                 lightness to read as the named color)
+  //   satA/B      — saturation for each endpoint
+  //   btnTextA/B  — text color for the choice button (for contrast)
+  const PAIRS = [
+    {
+      id: 'red-orange',
+      labelA: 'RED',    labelB: 'ORANGE',
+      hueA: 0,   hueB: 35,
+      satA: 90,  satB: 100,
+      litA: 50,  litB: 50,
+      btnTextA: '#fff', btnTextB: '#3a2200',
+    },
+    {
+      id: 'orange-yellow',
+      labelA: 'ORANGE', labelB: 'YELLOW',
+      // Yellow extreme is #FFCB04 = hsl(48, 100%, 51%).
+      hueA: 22,  hueB: 48,
+      satA: 100, satB: 100,
+      litA: 50,  litB: 51,
+      btnTextA: '#3a2200', btnTextB: '#3a2e00',
+    },
+    {
+      id: 'yellow-green',
+      labelA: 'YELLOW', labelB: 'GREEN',
+      // Yellow extreme is #FFCB04 = hsl(48, 100%, 51%).
+      // Green extreme is #00B10C = hsl(124, 100%, 35%).
+      hueA: 48,  hueB: 124,
+      satA: 100, satB: 100,
+      litA: 51,  litB: 35,
+      // Bias > 1 stretches the A (yellow) end of the gradient, so more of
+      // the bar shows yellow shades before transitioning to green.
+      biasA: 2,
+      btnTextA: '#3a2e00', btnTextB: '#fff',
+    },
+    {
+      id: 'green-blue',
+      labelA: 'GREEN',  labelB: 'BLUE',
+      // Green extreme is #00B10C = hsl(124, 100%, 35%).
+      hueA: 124, hueB: 240,
+      satA: 100, satB: 90,
+      litA: 35,  litB: 50,
+      btnTextA: '#fff', btnTextB: '#fff',
+    },
+    {
+      id: 'blue-purple',
+      labelA: 'BLUE',   labelB: 'PURPLE',
+      hueA: 230, hueB: 285,
+      satA: 90,  satB: 70,
+      litA: 50,  litB: 45,
+      btnTextA: '#fff', btnTextB: '#fff',
+    },
+    {
+      id: 'purple-red',
+      labelA: 'PURPLE', labelB: 'RED',
+      hueA: 285, hueB: 360,
+      satA: 70,  satB: 90,
+      litA: 45,  litB: 50,
+      btnTextA: '#fff', btnTextB: '#fff',
+    },
+  ];
+
+  let activePair = null;
+  let questionIndex = 0;
+  let lo = 0, hi = 0;
+  let currentHue = 0;
+  const history = [];
+
+  // ---------- DOM ----------
+  const picker = document.getElementById('picker');
+  const pairGrid = document.getElementById('pairGrid');
+  const app = document.getElementById('app');
+  const progress = document.getElementById('progress');
+  const btnA = document.getElementById('btnA');
+  const btnB = document.getElementById('btnB');
+  const questionText = document.getElementById('questionText');
+  const testTitle = document.getElementById('testTitle');
+  const results = document.getElementById('results');
+
+  // ---------- Color helpers ----------
+  // Linear interpolation in hue/sat/lit between the pair's two endpoints.
+  // We always use the "short way" around the wheel because each pair's range
+  // is < 180°.
+  function shortHue(h) { return ((h % 360) + 360) % 360; }
+
+  function colorAt(hue, pair) {
+    const span = pair.hueB - pair.hueA;
+    const t = Math.max(0, Math.min(1, (hue - pair.hueA) / span));
+    const sat = pair.satA + (pair.satB - pair.satA) * t;
+    const lit = pair.litA + (pair.litB - pair.litA) * t;
+    return `hsl(${shortHue(hue).toFixed(1)}, ${sat.toFixed(1)}%, ${lit.toFixed(1)}%)`;
+  }
+
+  function endpointColor(pair, side) {
+    // side: 'A' or 'B'
+    return colorAt(side === 'A' ? pair.hueA : pair.hueB, pair);
+  }
+
+  function gradientCss(pair) {
+    // biasA shifts the gradient's hue progression: bias > 1 means A-side
+    // colors occupy more of the bar (slower transition out of A).
+    const bias = pair.biasA || 1;
+    const stops = [];
+    const N = 9;
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1);
+      const f = Math.pow(t, bias);
+      const h = pair.hueA + f * (pair.hueB - pair.hueA);
+      stops.push(colorAt(h, pair));
+    }
+    return `linear-gradient(to right, ${stops.join(', ')})`;
+  }
+
+  // ---------- Picker ----------
+  function buildPicker() {
+    pairGrid.innerHTML = '';
+    PAIRS.forEach(pair => {
+      const btn = document.createElement('button');
+      btn.className = 'pair-btn';
+      btn.style.background = gradientCss(pair);
+      btn.innerHTML = `<span class="label">${pair.labelA} &nbsp;vs&nbsp; ${pair.labelB}</span>`;
+      btn.addEventListener('click', () => startTest(pair));
+      pairGrid.appendChild(btn);
+    });
+  }
+
+  // ---------- Test flow ----------
+  function startTest(pair) {
+    activePair = pair;
+    questionIndex = 0;
+    lo = pair.hueA;
+    hi = pair.hueB;
+    history.length = 0;
+
+    // Configure choice buttons.
+    btnA.textContent = pair.labelA;
+    btnB.textContent = pair.labelB;
+    btnA.style.background = endpointColor(pair, 'A');
+    btnB.style.background = endpointColor(pair, 'B');
+    btnA.style.color = pair.btnTextA;
+    btnB.style.color = pair.btnTextB;
+
+    questionText.textContent = `Is this ${pair.labelA.toLowerCase()} or ${pair.labelB.toLowerCase()}?`;
+    testTitle.textContent = `is my ${pair.labelA.toLowerCase()} your ${pair.labelA.toLowerCase()}?`;
+
+    picker.style.display = 'none';
+    results.style.display = 'none';
+    app.style.display = 'flex';
+
+    nextQuestion();
+  }
+
+  function pickNextHue() {
+    if (questionIndex === 0) return activePair.hueA;
+    if (questionIndex === 1) return activePair.hueB;
+
+    const mid = (lo + hi) / 2;
+    const span = hi - lo;
+    const side = (questionIndex % 2 === 0) ? -1 : 1;
+    const offset = side * span * 0.18;
+    const jitter = (Math.random() - 0.5) * Math.min(2, span * 0.06);
+    return Math.max(activePair.hueA, Math.min(activePair.hueB, mid + offset + jitter));
+  }
+
+  function nextQuestion() {
+    if (questionIndex >= TOTAL_QUESTIONS) {
+      showResults();
+      return;
+    }
+    currentHue = pickNextHue();
+    app.style.backgroundColor = colorAt(currentHue, activePair);
+    progress.textContent = `${questionIndex + 1} / ${TOTAL_QUESTIONS}`;
+  }
+
+  function answer(choice) {
+    // choice: 'A' or 'B'
+    history.push({ hue: currentHue, choice });
+    if (choice === 'A') {
+      lo = Math.max(lo, currentHue);
+    } else {
+      hi = Math.min(hi, currentHue);
+    }
+    if (hi - lo < 2) {
+      lo = Math.max(activePair.hueA, currentHue - 8);
+      hi = Math.min(activePair.hueB, currentHue + 8);
+    }
+    questionIndex++;
+    nextQuestion();
+  }
+
+  function estimateBoundary() {
+    const aSide = history.filter(h => h.choice === 'A').map(h => h.hue);
+    const bSide = history.filter(h => h.choice === 'B').map(h => h.hue);
+
+    let estimate;
+    if (aSide.length === 0 && bSide.length > 0) {
+      estimate = Math.min(...bSide) - 2;
+    } else if (bSide.length === 0 && aSide.length > 0) {
+      estimate = Math.max(...aSide) + 2;
+    } else if (aSide.length === 0 && bSide.length === 0) {
+      estimate = (activePair.hueA + activePair.hueB) / 2;
+    } else {
+      const maxA = Math.max(...aSide);
+      const minB = Math.min(...bSide);
+      if (maxA < minB) {
+        estimate = (maxA + minB) / 2;
+      } else {
+        const all = history.map(h => h.choice === 'A' ? h.hue + 1.5 : h.hue - 1.5);
+        estimate = all.reduce((a, b) => a + b, 0) / all.length;
+      }
+    }
+    return Math.max(activePair.hueA, Math.min(activePair.hueB, estimate));
+  }
+
+  function pctOnBar(hue) {
+    // Inverse of the gradient's bias mapping so the marker lines up with
+    // the actual color shown at that visual position on the bar.
+    const bias = activePair.biasA || 1;
+    const linear = (hue - activePair.hueA) / (activePair.hueB - activePair.hueA);
+    const t = Math.pow(Math.max(0, Math.min(1, linear)), 1 / bias);
+    return t * 100;
+  }
+
+  // ---------- Results ----------
+  function showResults() {
+    const boundary = estimateBoundary();
+
+    document.getElementById('gradientFill').style.background = gradientCss(activePair);
+    document.getElementById('markerYou').style.left = pctOnBar(boundary) + '%';
+    document.getElementById('boundarySwatch').style.background = colorAt(boundary, activePair);
+
+    document.getElementById('swatchA').style.background = endpointColor(activePair, 'A');
+    document.getElementById('swatchB').style.background = endpointColor(activePair, 'B');
+    document.getElementById('swatchALabel').textContent = `pure ${activePair.labelA.toLowerCase()}`;
+    document.getElementById('swatchBLabel').textContent = `pure ${activePair.labelB.toLowerCase()}`;
+
+    document.getElementById('moreA').textContent = `more ${activePair.labelA.toLowerCase()}`;
+    document.getElementById('moreB').textContent = `more ${activePair.labelB.toLowerCase()}`;
+
+    document.getElementById('resultTitle').textContent =
+      `Your ${activePair.labelA.toLowerCase()} / ${activePair.labelB.toLowerCase()} boundary`;
+    document.getElementById('resultText').textContent =
+      `Your boundary sits at hue ${boundary.toFixed(1)}° (this test runs from ${activePair.hueA}° on the ${activePair.labelA.toLowerCase()} side to ${activePair.hueB}° on the ${activePair.labelB.toLowerCase()} side).`;
+    document.getElementById('interpretation').textContent =
+      `Colors with a hue below ${boundary.toFixed(1)}° you tend to call ${activePair.labelA.toLowerCase()}; above that, you tend to call ${activePair.labelB.toLowerCase()}.`;
+
+    app.style.display = 'none';
+    results.style.display = 'block';
+
+    window.__lastResult = { boundary, history, pair: activePair.id };
+  }
+
+  // ---------- Wiring ----------
+  btnA.addEventListener('click', () => answer('A'));
+  btnB.addEventListener('click', () => answer('B'));
+
+  document.addEventListener('keydown', (e) => {
+    if (app.style.display !== 'flex') return;
+    if (e.key === 'ArrowLeft') answer('A');
+    else if (e.key === 'ArrowRight') answer('B');
+  });
+
+  document.getElementById('restartBtn').addEventListener('click', () => startTest(activePair));
+  document.getElementById('changePairBtn').addEventListener('click', () => {
+    results.style.display = 'none';
+    app.style.display = 'none';
+    picker.style.display = 'flex';
+  });
+  document.getElementById('exitTestBtn').addEventListener('click', () => {
+    app.style.display = 'none';
+    results.style.display = 'none';
+    picker.style.display = 'flex';
+  });
+  document.getElementById('shareBtn').addEventListener('click', () => {
+    const r = window.__lastResult;
+    if (!r) return;
+    const text = `My ${activePair.labelA.toLowerCase()}/${activePair.labelB.toLowerCase()} boundary is at hue ${r.boundary.toFixed(1)}°.`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('shareBtn');
+        const old = btn.textContent;
+        btn.textContent = 'copied!';
+        setTimeout(() => btn.textContent = old, 1500);
+      });
+    }
+  });
+
+  // ---------- Init ----------
+  buildPicker();
+})();
+</script>
+
+</body>
+</html>
